@@ -1,10 +1,10 @@
 # AI_ProblemSolving_-217-
 
-# 🧠 Sudoku Solver (CSP)
+#  Sudoku Solver (CSP)
 
 ---
 
-## 📌 Problem Description
+##  Problem Description
 
 This project solves a **9×9 Sudoku puzzle** where empty cells are filled such that:
 
@@ -14,13 +14,13 @@ This project solves a **9×9 Sudoku puzzle** where empty cells are filled such t
 
 ---
 
-## 🎯 Objective
+##  Objective
 
 To solve Sudoku using **Artificial Intelligence techniques** by applying the **Constraint Satisfaction Problem (CSP)** approach.
 
 ---
 
-## ⚙️ Algorithm Used
+##  Algorithm Used
 
 **Backtracking Algorithm (CSP)**
 
@@ -28,7 +28,7 @@ This algorithm tries possible values and backtracks when constraints are violate
 
 ---
 
-## 🧩 CSP Representation
+##  CSP Representation
 
 * **Variables** → Empty cells in the grid
 * **Domain** → Numbers (1–9)
@@ -40,7 +40,7 @@ This algorithm tries possible values and backtracks when constraints are violate
 
 ---
 
-## 🚀 Execution Steps
+##  Execution Steps
 
 1. Read the Sudoku grid
 2. Find an empty cell
@@ -53,7 +53,7 @@ This algorithm tries possible values and backtracks when constraints are violate
 
 ---
 
-## 💻 Sample Input
+##  Sample Input
 
 ```
 5 3 0 | 0 7 0 | 0 0 0
@@ -63,7 +63,7 @@ This algorithm tries possible values and backtracks when constraints are violate
 
 ---
 
-## 📤 Sample Output
+##  Sample Output
 
 ```
 5 3 4 | 6 7 8 | 9 1 2
@@ -73,7 +73,7 @@ This algorithm tries possible values and backtracks when constraints are violate
 
 ---
 
-## 📊 Results
+##  Results
 
 * Sudoku solved successfully
 * All constraints satisfied
@@ -81,14 +81,14 @@ This algorithm tries possible values and backtracks when constraints are violate
 
 ---
 
-## 🏁 Conclusion
+##  Conclusion
 
 The Sudoku problem was solved using the **Constraint Satisfaction Problem approach**.
 Backtracking ensures a correct and complete solution.
 
 ---
 
-## 🔮 Future Enhancements
+##  Future Enhancements
 
 * Add GUI using Tkinter
 * Add difficulty levels
