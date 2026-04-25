@@ -1,1 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sudoku CSP Solver | AI Assignment</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --bg:      #0d0d0f;
+      --surf:    #141418;
+      --surf2:   #1a1a22;
+      --border:  #2a2a35;
+      --accent:  #00e5a0;
+      --purple:  #7c6bff;
+      --warn:    #ff5c5c;
+      --text:    #e8e8f0;
+      --muted:   #6b6b82;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* grid background texture */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(0,229,160,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,160,.04) 1px, transparent 1px);
+      background-size: 38px 38px;
+      pointer-events: none;
+    }
+
+    .page {
+      position: relative; z-index: 1;
+      max-width: 980px; margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    /* ── Header ── */
+    .badge {
+      display: inline-block;
+      font-family: 'Courier New', monospace;
+      font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+      color: var(--accent); border: 1.5px solid var(--accent);
+      padding: 3px 10px; border-radius: 3px; margin-bottom: 14px;
+    }
+    h1 {
+      font-size: clamp(2rem, 5.5vw, 3.4rem);
+      font-weight: 700; letter-spacing: -.03em; line-height: 1.05;
+      margin-bottom: 6px;
+    }
+    h1 span { color: var(--accent); }
+    .sub {
+      font-family: 'Courier New', monospace;
+      font-size: 12px; color: var(--muted); letter-spacing: .06em;
+      margin-bottom: 2rem;
+    }
+
+    /* ── Main layout ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 230px;
+      gap: 2rem; align-items: start;
+    }
+    .left  { display: flex; flex-direction: column; gap: 14px; }
+    .right { display: flex; flex-direction: column; gap: 12px; }
+
+    /* ── Difficulty buttons ── */
+    .diff-label {
+      font-family: 'Courier New', monospace;
+      font-size: 11px; color: var(--muted); letter-spacing: .06em;
+      margin-bottom: 6px;
+    }
+    .diff-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .dbtn {
+      font-family: 'Courier New', monospace;
+      font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+      padding: 7px 16px; border: 1.5px solid var(--border);
+      background: transparent; color: var(--muted);
+      cursor: pointer; border-radius: 3px; transition: all .15s;
+    }
+    .dbtn:hover   { border-color: var(--accent); color: var(--accent); }
+    .dbtn.active  { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
+
+    /* ── Sudoku Board ── */
+    .board-wrap {
+      background: var(--surf); border: 1.5px solid var(--border);
+      border-radius: 8px; padding: 14px; display: inline-block;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(9, 44px);
+      grid-template-rows:    repeat(9, 44px);
+      border: 2px solid var(--accent);
+      gap: 1px; background: var(--border);
+    }
+    .cell {
+      background: var(--surf2);
+      display: flex; align-items: center; justify-content: center;
+      transition: background .1s;
+    }
+    .cell input {
+      width: 100%; height: 100%;
+      border: none; outline: none; background: transparent;
+      text-align: center;
+      font-family: 'Courier New', monospace;
+      font-size: 16px; font-weight: 700;
+      color: var(--text); cursor: pointer;
+      caret-color: var(--accent);
+    }
+    .cell input:focus { background: rgba(0,229,160,.08); }
+
+    /* 3x3 box dividers */
+    .cell.br { border-right:  2px solid var(--purple) !important; }
+    .cell.bb { border-bottom: 2px solid var(--purple) !important; }
+
+    /* cell states */
+    .cell.fixed        { background: var(--bg); }
+    .cell.fixed  input { color: var(--accent); }
+    .cell.solved input { color: var(--purple); }
+    .cell.ac3    input { color: #ffa94d; }
+    .cell.err          { background: rgba(255,92,92,.12); }
+    .cell.err    input { color: var(--warn); }
+
+    /* ── Action buttons ── */
+    .act-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-main {
+      font-family: 'Courier New', monospace;
+      font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+      padding: 9px 22px; border: none;
+      background: var(--accent); color: #000;
+      cursor: pointer; border-radius: 3px; font-weight: 700; transition: all .15s;
+    }
+    .btn-main:hover    { background: #00ffb3; }
+    .btn-main:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-sec {
+      font-family: 'Courier New', monospace;
+      font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+      padding: 9px 16px; border: 1.5px solid var(--border);
+      background: transparent; color: var(--muted);
+      cursor: pointer; border-radius: 3px; transition: all .15s;
+    }
+    .btn-sec:hover { border-color: var(--muted); color: var(--text); }
+
+    /* ── Status bar ── */
+    .status {
+      font-family: 'Courier New', monospace;
+      font-size: 11px; padding: 9px 14px;
+      border-left: 3px solid var(--border);
+      background: var(--surf); color: var(--muted);
+      border-radius: 0 4px 4px 0;
+      min-height: 36px; display: flex; align-items: center; gap: 8px;
+    }
+    .status.ok   { border-color: var(--accent); color: var(--accent);  background: rgba(0,229,160,.07); }
+    .status.err  { border-color: var(--warn);   color: var(--warn);    background: rgba(255,92,92,.07); }
+    .status.busy { border-color: var(--purple);  color: var(--purple); background: rgba(124,107,255,.07); }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+    /* ── Right panel cards ── */
+    .rcard {
+      background: var(--surf); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px 16px;
+    }
+    .rcard-title {
+      font-family: 'Courier New', monospace;
+      font-size: 9px; letter-spacing: .18em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 12px;
+    }
+
+    /* Stats */
+    .stat-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 0; border-bottom: 1px solid var(--border);
+    }
+    .stat-row:last-child { border: none; padding-bottom: 0; }
+    .slabel { font-size: 11px; color: var(--muted); font-family: 'Courier New', monospace; }
+    .sval   { font-size: 13px; font-weight: 700; font-family: 'Courier New', monospace; color: var(--accent); }
+    .sval.dim { color: var(--muted); }
+
+    /* Numpad */
+    .numpad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+    .npb {
+      font-family: 'Courier New', monospace;
+      font-size: 13px; font-weight: 700;
+      padding: 8px 0; border: 1px solid var(--border);
+      background: var(--surf2); color: var(--text);
+      cursor: pointer; border-radius: 3px;
+      transition: all .12s; text-align: center;
+    }
+    .npb:hover { border-color: var(--accent); color: var(--accent); }
+    .npb.er    { color: var(--warn); border-color: rgba(255,92,92,.4); }
+
+    /* How it works */
+    .step-row {
+      display: flex; gap: 8px; align-items: flex-start;
+      margin-bottom: 9px; font-size: 12px; color: var(--muted); line-height: 1.55;
+    }
+    .step-row:last-child { margin-bottom: 0; }
+    .snum {
+      font-family: 'Courier New', monospace; font-size: 9px; font-weight: 700;
+      background: rgba(0,229,160,.12); color: var(--accent);
+      border: 1px solid rgba(0,229,160,.3);
+      padding: 1px 5px; border-radius: 2px; flex-shrink: 0; margin-top: 2px;
+    }
+    .step-row b { color: var(--text); }
+
+    /* Legend */
+    .leg {
+      display: flex; align-items: center; gap: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px; color: var(--muted); margin-bottom: 7px;
+    }
+    .leg:last-child { margin-bottom: 0; }
+    .ldot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+    /* Spinner */
+    .spin {
+      display: inline-block; width: 10px; height: 10px;
+      border: 1.5px solid var(--muted); border-top-color: var(--accent);
+      border-radius: 50%; animation: sp .5s linear infinite;
+    }
+    @keyframes sp  { to { transform: rotate(360deg); } }
+    @keyframes pop { from { opacity:0; transform:scale(.4); } to { opacity:1; transform:scale(1); } }
+    .pop { animation: pop .18s ease-out; }
+
+    /* Responsive */
+    @media (max-width: 660px) {
+      .layout { grid-template-columns: 1fr; }
+      .board  { grid-template-columns: repeat(9,34px); grid-template-rows: repeat(9,34px); }
+      .cell input { font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <div class="badge">CSP &middot; AI Assignment &middot; Problem 6</div>
+  <h1>Sudoku <span>CSP</span> Solver</h1>
+  <p class="sub">AC-3 Arc Consistency + Backtracking + MRV Heuristic</p>
+
+  <div class="layout">
+
+    <!-- ── LEFT: board + controls ── -->
+    <div class="left">
+      <div>
+        <p class="diff-label">Load a sample puzzle:</p>
+        <div class="diff-row">
+          <button class="dbtn" id="dEasy" onclick="loadP('easy')">Easy</button>
+          <button class="dbtn" id="dMed"  onclick="loadP('medium')">Medium</button>
+          <button class="dbtn" id="dHard" onclick="loadP('hard')">Hard</button>
+          <button class="dbtn"            onclick="clearAll()">Clear Board</button>
+        </div>
+      </div>
+
+      <div class="board-wrap">
+        <div class="board" id="board"></div>
+      </div>
+
+      <div class="act-row">
+        <button class="btn-main" id="solveBtn" onclick="solve()">&#9658; Solve</button>
+        <button class="btn-sec"                onclick="validateB()">&#10003; Validate</button>
+        <button class="btn-sec"                onclick="resetB()">&#8635; Reset</button>
+      </div>
+
+      <div class="status" id="status">
+        <span class="dot"></span>
+        <span>Load a puzzle or enter numbers, then click Solve.</span>
+      </div>
+    </div>
+
+    <!-- ── RIGHT: stats + info ── -->
+    <div class="right">
+
+      <div class="rcard">
+        <p class="rcard-title">Solver Stats</p>
+        <div class="stat-row"><span class="slabel">Time</span>       <span class="sval dim" id="sT">&#8212;</span></div>
+        <div class="stat-row"><span class="slabel">Steps</span>      <span class="sval dim" id="sS">&#8212;</span></div>
+        <div class="stat-row"><span class="slabel">Backtracks</span> <span class="sval dim" id="sBk">&#8212;</span></div>
+        <div class="stat-row"><span class="slabel">AC-3 Fills</span> <span class="sval dim" id="sA3">&#8212;</span></div>
+      </div>
+
+      <div class="rcard">
+        <p class="rcard-title">Numpad</p>
+        <div class="numpad" id="numpad"></div>
+      </div>
+
+      <div class="rcard">
+        <p class="rcard-title">How It Works</p>
+        <div class="step-row"><span class="snum">1</span><span><b>Variables</b> &mdash; Each empty cell, domain {1&ndash;9}</span></div>
+        <div class="step-row"><span class="snum">2</span><span><b>AC-3</b> &mdash; Prunes impossible values via arc consistency</span></div>
+        <div class="step-row"><span class="snum">3</span><span><b>MRV</b> &mdash; Picks the most constrained cell first</span></div>
+        <div class="step-row"><span class="snum">4</span><span><b>Backtrack</b> &mdash; Tries values, undoes on conflict</span></div>
+      </div>
+
+      <div class="rcard">
+        <p class="rcard-title">Legend</p>
+        <div class="leg"><div class="ldot" style="background:#00e5a0"></div>Given / Fixed</div>
+        <div class="leg"><div class="ldot" style="background:#ffa94d"></div>AC-3 Deduced</div>
+        <div class="leg"><div class="ldot" style="background:#7c6bff"></div>Backtrack Fill</div>
+        <div class="leg"><div class="ldot" style="background:#ff5c5c"></div>Conflict</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  HARDCODED PUZZLES — board always loads instantly
+// ═══════════════════════════════════════════════════
+const PUZZLES = {
+  easy: [
+    [5,3,0,0,7,0,0,0,0],[6,0,0,1,9,5,0,0,0],[0,9,8,0,0,0,0,6,0],
+    [8,0,0,0,6,0,0,0,3],[4,0,0,8,0,3,0,0,1],[7,0,0,0,2,0,0,0,6],
+    [0,6,0,0,0,0,2,8,0],[0,0,0,4,1,9,0,0,5],[0,0,0,0,8,0,0,7,9]
+  ],
+  medium: [
+    [0,0,0,2,6,0,7,0,1],[6,8,0,0,7,0,0,9,0],[1,9,0,0,0,4,5,0,0],
+    [8,2,0,1,0,0,0,4,0],[0,0,4,6,0,2,9,0,0],[0,5,0,0,0,3,0,2,8],
+    [0,0,9,3,0,0,0,7,4],[0,4,0,0,5,0,0,3,6],[7,0,3,0,1,8,0,0,0]
+  ],
+  hard: [
+    [0,0,0,0,0,0,0,0,0],[0,0,0,0,0,3,0,8,5],[0,0,1,0,2,0,0,0,0],
+    [0,0,0,5,0,7,0,0,0],[0,0,4,0,0,0,1,0,0],[0,9,0,0,0,0,0,0,0],
+    [5,0,0,0,0,0,0,7,3],[0,0,2,0,1,0,0,0,0],[0,0,0,0,4,0,0,0,9]
+  ]
+};
+
+// ═══════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════
+let ig  = Array.from({length:9}, () => Array(9).fill(0));
+let sel = null;
+
+// ═══════════════════════════════════════════════════
+//  BUILD BOARD
+// ═══════════════════════════════════════════════════
+function buildBoard() {
+  const b = document.getElementById('board');
+  b.innerHTML = '';
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell' + (c===2||c===5?' br':'') + (r===2||r===5?' bb':'');
+      cell.dataset.r = r; cell.dataset.c = c;
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.maxLength = 1; inp.readOnly = true;
+      inp.dataset.r = r; inp.dataset.c = c;
+      inp.addEventListener('focus', () => { sel = [r, c]; });
+      cell.appendChild(inp);
+      b.appendChild(cell);
+    }
+  }
+  buildNumpad();
+}
+
+// ═══════════════════════════════════════════════════
+//  NUMPAD
+// ═══════════════════════════════════════════════════
+function buildNumpad() {
+  const n = document.getElementById('numpad');
+  n.innerHTML = '';
+  for (let v = 1; v <= 9; v++) {
+    const b = document.createElement('button');
+    b.className = 'npb'; b.textContent = v;
+    b.addEventListener('mousedown', e => { e.preventDefault(); enter(v); });
+    n.appendChild(b);
+  }
+  const er = document.createElement('button');
+  er.className = 'npb er'; er.textContent = '✕';
+  er.addEventListener('mousedown', e => { e.preventDefault(); enter(0); });
+  n.appendChild(er);
+}
+
+function enter(v) {
+  if (!sel) return;
+  const [r, c] = sel;
+  const cell = gC(r, c);
+  if (cell.classList.contains('fixed')) return;
+  ig[r][c] = v;
+  gI(r, c).value = v || '';
+  cell.className = 'cell' + (c===2||c===5?' br':'') + (r===2||r===5?' bb':'');
+}
+
+// ═══════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════
+function gC(r,c) { return document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`); }
+function gI(r,c) { return document.querySelector(`input[data-r="${r}"][data-c="${c}"]`); }
+
+function render(grid, fixed, tm) {
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      const inp  = gI(r, c);
+      const cell = gC(r, c);
+      const v    = grid[r][c];
+      inp.value  = v || '';
+      let cls = 'cell' + (c===2||c===5?' br':'') + (r===2||r===5?' bb':'');
+      if (fixed?.[r]?.[c]) {
+        cls += ' fixed'; inp.readOnly = true;
+      } else {
+        inp.readOnly = false;
+        const t = tm?.[r]?.[c];
+        if (t === 'ac3') cls += ' ac3';
+        else if (t === 'bt') cls += ' solved';
+      }
+      cell.className = cls;
+      if (v && tm?.[r]?.[c]) inp.classList.add('pop');
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  LOAD PUZZLE — uses hardcoded data, instant load
+// ═══════════════════════════════════════════════════
+function loadP(diff) {
+  document.querySelectorAll('.dbtn').forEach(b => b.classList.remove('active'));
+  document.getElementById({easy:'dEasy',medium:'dMed',hard:'dHard'}[diff]).classList.add('active');
+  ig = PUZZLES[diff].map(r => [...r]);
+  render(ig, ig.map(r => r.map(v => !!v)), null);
+  clrStats();
+  setStatus('', 'Puzzle loaded — click &#9658; Solve to run CSP algorithm.');
+}
+
+function clearAll() {
+  document.querySelectorAll('.dbtn').forEach(b => b.classList.remove('active'));
+  ig = Array.from({length:9}, () => Array(9).fill(0));
+  render(ig, null, null); clrStats();
+  setStatus('', 'Board cleared. Tap a cell then use the numpad.');
+}
+
+function resetB() {
+  render(ig, ig.map(r => r.map(v => !!v)), null); clrStats();
+  setStatus('', 'Reset to original puzzle.');
+}
+
+// ═══════════════════════════════════════════════════
+//  JS CSP SOLVER — runs in browser, no server needed
+// ═══════════════════════════════════════════════════
+function getPeers(r, c) {
+  const p = [];
+  for (let i = 0; i < 9; i++) { if (i!==c) p.push([r,i]); if (i!==r) p.push([i,c]); }
+  const br = Math.floor(r/3)*3, bc = Math.floor(c/3)*3;
+  for (let rr = br; rr < br+3; rr++)
+    for (let cc = bc; cc < bc+3; cc++)
+      if (rr!==r || cc!==c) p.push([rr, cc]);
+  return p;
+}
+
+function initDoms(grid) {
+  const d = {};
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      d[r+','+c] = grid[r][c] ? new Set([grid[r][c]]) : new Set([1,2,3,4,5,6,7,8,9]);
+  return d;
+}
+
+function runAC3(domains) {
+  const q = [];
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      for (const [pr,pc] of getPeers(r,c)) q.push([[r,c],[pr,pc]]);
+  while (q.length) {
+    const [[r,c],[pr,pc]] = q.shift();
+    const dk = r+','+c, pk = pr+','+pc;
+    if (domains[pk].size === 1) {
+      const v = [...domains[pk]][0];
+      if (domains[dk].has(v)) {
+        domains[dk].delete(v);
+        if (!domains[dk].size) return false;
+        for (const [ar,ac] of getPeers(r,c)) q.push([[ar,ac],[r,c]]);
+      }
+    }
+  }
+  return true;
+}
+
+function mrvCell(grid, domains) {
+  let best = null, bl = 10;
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (!grid[r][c]) { const l = domains[r+','+c].size; if (l < bl) { bl = l; best = [r,c]; } }
+  return best;
+}
+
+function cellOk(grid, r, c, v) {
+  for (let i = 0; i < 9; i++) {
+    if (i!==c && grid[r][i]===v) return false;
+    if (i!==r && grid[i][c]===v) return false;
+  }
+  const br = Math.floor(r/3)*3, bc = Math.floor(c/3)*3;
+  for (let rr = br; rr < br+3; rr++)
+    for (let cc = bc; cc < bc+3; cc++)
+      if ((rr!==r||cc!==c) && grid[rr][cc]===v) return false;
+  return true;
+}
+
+function btSearch(grid, domains, steps) {
+  const cell = mrvCell(grid, domains);
+  if (!cell) return true;
+  const [r, c] = cell;
+  for (const v of [...domains[r+','+c]].sort()) {
+    if (cellOk(grid, r, c, v)) {
+      grid[r][c] = v;
+      steps.push({row:r, col:c, val:v, action:'place'});
+      const sv = {}; let cf = false;
+      for (const [pr,pc] of getPeers(r,c)) {
+        const pk = pr+','+pc;
+        if (!grid[pr][pc] && domains[pk].has(v)) {
+          if (!sv[pk]) sv[pk] = new Set(domains[pk]);
+          domains[pk].delete(v);
+          if (!domains[pk].size) { cf = true; break; }
+        }
+      }
+      if (!cf && btSearch(grid, domains, steps)) return true;
+      grid[r][c] = 0;
+      steps.push({row:r, col:c, val:0, action:'backtrack'});
+      for (const [k,s] of Object.entries(sv)) domains[k] = s;
+    }
+  }
+  return false;
+}
+
+function solveInBrowser(puzzle) {
+  const grid = puzzle.map(r => [...r]);
+  const domains = initDoms(grid);
+  const steps = [];
+  const t0 = performance.now();
+  if (!runAC3(domains)) return null;
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (!grid[r][c] && domains[r+','+c].size === 1) {
+        grid[r][c] = [...domains[r+','+c]][0];
+        steps.push({row:r, col:c, val:grid[r][c], action:'ac3'});
+      }
+  if (!btSearch(grid, domains, steps)) return null;
+  const ms = (performance.now() - t0).toFixed(1);
+  return {
+    solution: grid, steps,
+    stats: {
+      time_ms: ms, steps: steps.length,
+      backtracks: steps.filter(s => s.action==='backtrack').length,
+      ac3_placements: steps.filter(s => s.action==='ac3').length
+    }
+  };
+}
+
+// ═══════════════════════════════════════════════════
+//  SOLVE — tries Flask first, falls back to JS solver
+// ═══════════════════════════════════════════════════
+async function solve() {
+  const btn = document.getElementById('solveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>';
+  setStatus('busy', 'Running AC-3 + Backtracking...');
+
+  let data = null;
+  try {
+    const res = await fetch('/api/solve', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({puzzle: ig}),
+      signal: AbortSignal.timeout(3000)
+    });
+    data = await res.json();
+  } catch(e) {
+    // Flask not running → use built-in JS CSP solver
+    data = solveInBrowser(ig);
+    if (!data) data = {error: 'No solution found for this puzzle.'};
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '&#9658; Solve';
+
+  if (data.error) { setStatus('err', '&#10007; ' + data.error); return; }
+
+  const fixed = ig.map(r => r.map(v => !!v));
+  const tm    = Array.from({length:9}, () => Array(9).fill(null));
+  for (const s of data.steps)
+    if (!fixed[s.row][s.col] && s.action !== 'backtrack')
+      tm[s.row][s.col] = s.action === 'ac3' ? 'ac3' : 'bt';
+
+  render(data.solution, fixed, tm);
+
+  const st = data.stats;
+  document.getElementById('sT').textContent  = st.time_ms + ' ms';
+  document.getElementById('sS').textContent  = st.steps;
+  document.getElementById('sBk').textContent = st.backtracks;
+  document.getElementById('sA3').textContent = st.ac3_placements;
+  ['sT','sS','sBk','sA3'].forEach(id => document.getElementById(id).classList.remove('dim'));
+  setStatus('ok',
+    '&#10003; Solved in ' + st.time_ms + ' ms &mdash; ' +
+    st.ac3_placements + ' AC-3 fills, ' + st.backtracks + ' backtracks'
+  );
+}
+
+// ═══════════════════════════════════════════════════
+//  VALIDATE — pure JS, no server needed
+// ═══════════════════════════════════════════════════
+function validateB() {
+  const errors = [];
+  for (let r = 0; r < 9; r++) {
+    const s = new Set();
+    for (let c = 0; c < 9; c++) { const v = ig[r][c]; if (v) { if (s.has(v)) errors.push('Row '+(r+1)+': duplicate '+v); s.add(v); } }
+  }
+  for (let c = 0; c < 9; c++) {
+    const s = new Set();
+    for (let r = 0; r < 9; r++) { const v = ig[r][c]; if (v) { if (s.has(v)) errors.push('Col '+(c+1)+': duplicate '+v); s.add(v); } }
+  }
+  for (let br = 0; br < 3; br++)
+    for (let bc = 0; bc < 3; bc++) {
+      const s = new Set();
+      for (let r = br*3; r < br*3+3; r++)
+        for (let c = bc*3; c < bc*3+3; c++) { const v = ig[r][c]; if (v) { if (s.has(v)) errors.push('Box('+br+','+bc+'): dup '+v); s.add(v); } }
+    }
+  if (!errors.length) setStatus('ok', '&#10003; No conflicts found in current board.');
+  else setStatus('err', '&#10007; ' + errors.slice(0,2).join(' | ') + (errors.length>2 ? ' +'+(errors.length-2)+' more' : ''));
+}
+
+// ═══════════════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════════════
+function setStatus(type, msg) {
+  const el = document.getElementById('status');
+  el.className = 'status' + (type ? ' ' + type : '');
+  el.innerHTML = '<span class="dot"></span><span>' + msg + '</span>';
+}
+function clrStats() {
+  ['sT','sS','sBk','sA3'].forEach(id => {
+    const el = document.getElementById(id);
+    el.innerHTML = '&#8212;'; el.classList.add('dim');
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+buildBoard();
+loadP('easy');
+</script>
+</body>
+</html>
