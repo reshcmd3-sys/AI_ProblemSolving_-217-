@@ -71,7 +71,7 @@ This algorithm tries possible values and backtracks when constraints are violate
 1 9 8 | 3 4 2 | 5 6 7
 ```
 Website link:
-     https://reshcmd3-sys.github.io/AI_ProblemSolving_-217-/
+      https://reshcmd3-sys.github.io/AI_Sudoku_ProblemSolving_RA2411026050217/
 ---
 
 ##  Results
